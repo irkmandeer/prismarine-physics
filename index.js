@@ -38,6 +38,7 @@ function Physics (mcData, world) {
   if (blocksByName.seagrass) waterLike.add(blocksByName.seagrass.id) // 1.13+
   if (blocksByName.tall_seagrass) waterLike.add(blocksByName.tall_seagrass.id) // 1.13+
   if (blocksByName.kelp) waterLike.add(blocksByName.kelp.id) // 1.13+
+  if (blocksByName.kelp_plant) waterLike.add(blocksByName.kelp_plant.id) // 1.13+
   const bubblecolumnId = blocksByName.bubble_column ? blocksByName.bubble_column.id : -1 // 1.13+
   if (blocksByName.bubble_column) waterLike.add(bubblecolumnId)
 
@@ -378,8 +379,8 @@ function Physics (mcData, world) {
 
     if (!entity.isInWater && !entity.isInLava) {
       // Normal movement
-      let acceleration = physics.airborneAcceleration
-      let inertia = physics.airborneInertia
+      let acceleration = 0.0
+      let inertia = 0.0
       const blockUnder = world.getBlock(pos.offset(0, -1, 0))
       if (entity.onGround && blockUnder) {
         let playerSpeedAttribute
@@ -407,6 +408,14 @@ function Physics (mcData, world) {
         inertia = (blockSlipperiness[blockUnder.type] || physics.defaultSlipperiness) * 0.91
         acceleration = attributeSpeed * (0.1627714 / (inertia * inertia * inertia))
         if (acceleration < 0) acceleration = 0 // acceleration should not be negative
+      } else {
+        acceleration = physics.airborneAcceleration
+        inertia = physics.airborneInertia
+
+        if (entity.control.sprint) {
+          const airSprintFactor = physics.airborneAcceleration * 0.3
+          acceleration += airSprintFactor
+        }
       }
 
       applyHeading(entity, strafe, forward, acceleration)
@@ -646,33 +655,10 @@ function getEnchantmentLevel (mcData, enchantmentName, enchantments) {
   return 0
 }
 
-function getStatusEffectNamesForVersion (supportFeature) {
-  if (supportFeature('effectNamesAreRegistryNames')) {
-    return {
-      jumpBoostEffectName: 'jump_boost',
-      speedEffectName: 'speed',
-      slownessEffectName: 'slowness',
-      dolphinsGraceEffectName: 'dolphins_grace',
-      slowFallingEffectName: 'slow_falling',
-      levitationEffectName: 'levitation'
-    }
-  } else {
-    return {
-      jumpBoostEffectName: 'JumpBoost',
-      speedEffectName: 'Speed',
-      slownessEffectName: 'Slowness',
-      dolphinsGraceEffectName: 'DolphinsGrace',
-      slowFallingEffectName: 'SlowFalling',
-      levitationEffectName: 'Levitation'
-    }
-  }
-}
-
 class PlayerState {
   constructor (bot, control) {
     const mcData = require('minecraft-data')(bot.version)
     const nbt = require('prismarine-nbt')
-    const supportFeature = makeSupportFeature(mcData)
 
     // Input / Outputs
     this.pos = bot.entity.position.clone()
@@ -694,15 +680,14 @@ class PlayerState {
 
     // effects
     const effects = bot.entity.effects
-    const statusEffectNames = getStatusEffectNamesForVersion(supportFeature)
 
-    this.jumpBoost = getEffectLevel(mcData, statusEffectNames.jumpBoostEffectName, effects)
-    this.speed = getEffectLevel(mcData, statusEffectNames.speedEffectName, effects)
-    this.slowness = getEffectLevel(mcData, statusEffectNames.slownessEffectName, effects)
+    this.jumpBoost = getEffectLevel(mcData, 'JumpBoost', effects)
+    this.speed = getEffectLevel(mcData, 'Speed', effects)
+    this.slowness = getEffectLevel(mcData, 'Slowness', effects)
 
-    this.dolphinsGrace = getEffectLevel(mcData, statusEffectNames.dolphinsGraceEffectName, effects)
-    this.slowFalling = getEffectLevel(mcData, statusEffectNames.slowFallingEffectName, effects)
-    this.levitation = getEffectLevel(mcData, statusEffectNames.levitationEffectName, effects)
+    this.dolphinsGrace = getEffectLevel(mcData, 'DolphinsGrace', effects)
+    this.slowFalling = getEffectLevel(mcData, 'SlowFalling', effects)
+    this.levitation = getEffectLevel(mcData, 'Levitation', effects)
 
     // armour enchantments
     const boots = bot.inventory.slots[8]
